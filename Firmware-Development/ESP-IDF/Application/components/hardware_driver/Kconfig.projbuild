@@ -1,0 +1,26 @@
+menu "Audio Media HAL Skainet"
+
+choice AUDIO_BOARD_SKAINET
+    prompt "Audio hardware board skainet"
+    default ESP32_S3_KORVO_1_V4_0_BOARD_SKAINET
+    help
+        Select an audio board to use
+
+config ESP32_KORVO_V1_1_BOARD_SKAINET
+    bool "ESP32-Korvo"
+    depends on IDF_TARGET_ESP32
+config ESP32_S3_BOX_BOARD_SKAINET
+    bool "ESP32-S3-Box"
+    depends on IDF_TARGET_ESP32S3
+config ESP32_S3_KORVO_1_V4_0_BOARD_SKAINET
+    bool "ESP32-S3-Korvo-1"
+    depends on IDF_TARGET_ESP32S3
+config ESP32_S3_KORVO_2_V3_0_BOARD_SKAINET
+    bool "ESP32-S3-Korvo-2"
+    depends on IDF_TARGET_ESP32S3
+config ESP32_S3_EYE_BOARD_SKAINET
+    bool "ESP32-S3-EYE"
+    depends on IDF_TARGET_ESP32S3
+endchoice
+
+endmenu
