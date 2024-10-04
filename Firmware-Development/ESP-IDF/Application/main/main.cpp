@@ -27,7 +27,7 @@
 #include "input_key_service.h"
 #include "WifiSoftApp.hpp"
 #include "TelemetrySend.hpp"
-#include <cJSON.h>
+#include "cJSON.h"
 #include "main.hpp"
 #include <utility>
 
@@ -101,56 +101,81 @@ void detect_Task(void *arg)
         task_flag = 0;
     }
 
-    while (1)
+    while (task_flag)
     {
-        // afe_fetch_result_t* res = afe_handle->fetch(afe_data);
-        // if (!res || res->ret_value == ESP_FAIL) {
-        //     printf("fetch error!\n");
-        //     break;
-        // }
-
-        // if (res->wakeup_state == WAKENET_DETECTED) {
-        //     printf("wakeword detected\n");
-        //     printf("model index:%d, word index:%d\n", res->wakenet_model_index, res->wake_word_index);
-        //     printf("-----------LISTENING-----------\n");
-        // }
-        // esp_audio_play(res->data, res->data_size, 1000/ portTICK_RATE_MS);
-        task_flag = 0;
-        while (!recordStatus)
-        {
-            vTaskDelay(1000 / portTICK_RATE_MS);
+        afe_fetch_result_t* res = afe_handle->fetch(afe_data);
+        if (!res || res->ret_value == ESP_FAIL) {
+            printf("fetch error!\n");
+            break;
         }
-        task_flag = 1;
+
+        if (res->wakeup_state == WAKENET_DETECTED || recordStatus) {
+            printf("wakeword detected\n");
+            printf("model index:%d, word index:%d\n", res->wakenet_model_index, res->wake_word_index);
+            printf("-----------LISTENING-----------\n");
+            recordStatus = true;
+        }
+        else
+        {
+            continue;
+        }
+        // // esp_audio_play(res->data, res->data_size, 1000/ portTICK_RATE_MS);
+        // task_flag = 0;
+        // while (!recordStatus)
+        // {
+        //     vTaskDelay(200 / portTICK_RATE_MS);
+        // }
+        // task_flag = 1;
         uint32_t audioSize = record(audioBuffer, RECORD_TIME_SECONDS);
+        recordStatus = false;
 
         task_flag = 0;
 
         openAI->transcribe_wav_file(audioBuffer, audioSize, transcribeResponseBuf);
         ESP_LOGI(TAG, "%s", transcribeResponseBuf);
         char *transcribedText = openAI->processTranscribeResponse(transcribeResponseBuf); // deallocation needed
+        char *message = json->createJson(std::make_pair("role", "user"),
+                                         std::make_pair("content", transcribedText));
 
+        ESP_LOGE(TAG, "message = %s", message);
+        char *messages = json->createJsonArray(message);
+        ESP_LOGE(TAG, "messages = %s", messages);
+
+        // Parse the `messages` string back into a cJSON array object
+        cJSON *messagesJson = cJSON_Parse(messages);
+
+        cJSON *completionRequest = cJSON_CreateObject();
+        cJSON_AddItemToObject(completionRequest, "model", cJSON_CreateString("mixtral-8x7b-32768"));
+        cJSON_AddItemToObject(completionRequest, "messages", messagesJson);  // Add messages as a JSON array, not a string
+        cJSON_AddItemToObject(completionRequest, "max_tokens", cJSON_CreateNumber(32));
+        cJSON_AddItemToObject(completionRequest, "temperature", cJSON_CreateNumber(0.5));
+        
         if (transcribedText)
         {
+            char *completionRequestJson = cJSON_PrintUnformatted(completionRequest);
+            ESP_LOGE(TAG, "completionRequestJson = %s", completionRequestJson);
 
-            char *completionRequestJson = json->createJson(std::make_pair("model", "gpt-3.5-turbo-instruct"),
-                                                           std::make_pair("prompt", transcribedText),
-                                                           std::make_pair("max_tokens", 32),
-                                                           std::make_pair("temperature", 0.5)); // deallocation needed
+            // char *completionRequestJson = json->createJson(std::make_pair("model", "mixtral-8x7b-32768"),
+            //                                                std::make_pair("messages", messages),
+            //                                                std::make_pair("max_tokens", 32),
+            //                                                std::make_pair("temperature", 0.5)); // deallocation needed
 
             ESP_LOGI(TAG, "%s\n", completionRequestJson);
             openAI->text_completion(completionRequestJson, completionResponseBuf);
 
-            char *completionText = openAI->process_response(completionResponseBuf); // deallocation needed
+            ESP_LOGI(TAG, "completionResponseBuf = %s", completionResponseBuf);
+
+            char *completionText = openAI->process_response_v2(completionResponseBuf); // deallocation needed
             if (completionText)
             {
                 char *speechRequestJson = json->createJson(std::make_pair("model", "tts-1"),
                                                            std::make_pair("input", completionText),
                                                            std::make_pair("voice", "alloy"),
-                                                           std::make_pair("response_data", "mp3")); // deallocation needed
+                                                           std::make_pair("response_data", "wav")); // deallocation needed
 
                 char *promptAndResponse = json->createJson(std::make_pair("prompt", transcribedText), std::make_pair("response", completionText));
 
-                telemetrySend->send_telemetry_data(promptAndResponse); // Post prompt and respone telemetry to the server
+                // telemetrySend->send_telemetry_data(promptAndResponse); // Post prompt and respone telemetry to the server
 
                 free(promptAndResponse);
                 ESP_LOGI(TAG, "%s\n", speechRequestJson);
@@ -281,8 +306,10 @@ extern "C" void app_main()
     AudioFrame audio = {.data = audio_data, .len = sizeof(audio_data)};
     play(audio);
 
+
     xTaskCreatePinnedToCore(&feed_Task, "feed", 8 * 1024, (void *)afe_data, 5, NULL, 0);
-    xTaskCreatePinnedToCore(&detect_Task, "detect", 4 * 1024, (void *)afe_data, 5, NULL, 1);
+    xTaskCreatePinnedToCore(&detect_Task, "detect", 8 * 1024, (void *)afe_data, 5, NULL, 1);
+
 
     // // You can call afe_handle->destroy to destroy AFE.
     // task_flag = 0;

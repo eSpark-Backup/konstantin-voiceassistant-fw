@@ -13,6 +13,38 @@
 
 static const char *TAG = "mp3_player";
 
+#define PRIV_I2S_STREAM_CFG_DEFAULT() PRIV_I2S_STREAM_CFG_DEFAULT_WITH_PARA(I2S_NUM_0, 44100, I2S_BITS_PER_SAMPLE_16BIT, AUDIO_STREAM_WRITER)
+
+#define PRIV_I2S_STREAM_CFG_DEFAULT_WITH_PARA(port, rate, bits, stream_type)  {      \
+    .type = stream_type,                                                        \
+    .i2s_port = port,                                                           \
+    .expand_src_bits = I2S_BITS_PER_SAMPLE_16BIT,                               \
+    .i2s_config = {                                                             \
+        .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_TX | I2S_MODE_RX),      \
+        .sample_rate = rate,                                                    \
+        .bits_per_sample = bits,                                                \
+        .channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT,                           \
+        .communication_format = I2S_COMM_FORMAT_STAND_I2S,                      \
+        .intr_alloc_flags = ESP_INTR_FLAG_LEVEL2 | ESP_INTR_FLAG_IRAM,          \
+        .dma_buf_count = 3,                                                     \
+        .dma_buf_len = 300,                                                     \
+        .use_apll = true,                                                       \
+        .tx_desc_auto_clear = true,                                             \
+        .fixed_mclk = 0                                                         \
+    },                                                                          \
+    .use_alc = false,                                                           \
+    .volume = 0,                                                                \
+    .out_rb_size = I2S_STREAM_RINGBUFFER_SIZE,                                  \
+    .task_stack = I2S_STREAM_TASK_STACK,                                        \
+    .task_core = I2S_STREAM_TASK_CORE,                                          \
+    .task_prio = I2S_STREAM_TASK_PRIO,                                          \
+    .stack_in_ext = false,                                                      \
+    .multi_out_num = 0,                                                         \
+    .uninstall_drv = true,                                                      \
+    .need_expand = false,                                                       \
+    .buffer_len = I2S_STREAM_BUF_SIZE,                                          \
+}
+
 static audio_element_err_t mp3_music_read_cb(audio_element_handle_t el, char *buf, int len, TickType_t wait_time, void *ctx)
 {
     AudioFrame *audio = (AudioFrame *)ctx;
@@ -57,7 +89,7 @@ void play(AudioFrame audio)
 #if defined CONFIG_ESP32_C3_LYRA_V2_BOARD
     i2s_stream_cfg_t i2s_cfg = I2S_STREAM_TX_PDM_CFG_DEFAULT();
 #else
-    i2s_stream_cfg_t i2s_cfg = I2S_STREAM_CFG_DEFAULT();
+    i2s_stream_cfg_t i2s_cfg = PRIV_I2S_STREAM_CFG_DEFAULT();
 #endif
     i2s_cfg.type = AUDIO_STREAM_WRITER;
     i2s_stream_writer = i2s_stream_init(&i2s_cfg);
@@ -98,7 +130,7 @@ void play(AudioFrame audio)
             ESP_LOGE(TAG, "[ * ] Event interface error : %d", ret);
             continue;
         }
-        std::cout << "before if.... " << std::endl; // debug print
+        // std::cout << "before if.... " << std::endl; // debug print
         // This condtion is not getting true at that is Why audio is not playing
         if (msg.source_type == AUDIO_ELEMENT_TYPE_ELEMENT && msg.source == (void *)mp3_decoder && msg.cmd == AEL_MSG_CMD_REPORT_MUSIC_INFO)
         {
@@ -111,7 +143,7 @@ void play(AudioFrame audio)
             i2s_stream_set_clk(i2s_stream_writer, music_info.sample_rates, music_info.bits, music_info.channels);
             continue;
         }
-        std::cout << "After if.... " << std::endl; // debug print
+        // std::cout << "After if.... " << std::endl; // debug print
         /* Stop when the last pipeline element (i2s_stream_writer in this case) receives stop event */
         if (msg.source_type == AUDIO_ELEMENT_TYPE_ELEMENT && msg.source == (void *)i2s_stream_writer && msg.cmd == AEL_MSG_CMD_REPORT_STATUS && (((int)msg.data == AEL_STATUS_STATE_STOPPED) || ((int)msg.data == AEL_STATUS_STATE_FINISHED)))
         {

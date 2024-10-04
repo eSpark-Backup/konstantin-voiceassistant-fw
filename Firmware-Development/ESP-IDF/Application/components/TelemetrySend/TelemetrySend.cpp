@@ -4,7 +4,7 @@
 
 
 // Define the server endpoint URL
-#define SERVER_URL "http://192.168.18.138:8080/"
+#define SERVER_URL "http://192.168.18.194:8080/"
 #define TAG "TelemetrySend" // Change this tag to suit your needs
 
 // Telemetry data structure (customize based on your needs)

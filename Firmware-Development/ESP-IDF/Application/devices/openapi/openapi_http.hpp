@@ -3,7 +3,16 @@
 #include <stdarg.h>
 
 #define FILE_PATH "/spiffs/audiow.wav"
-#define API_KEY "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"
+
+#include "api_keys.h"
+
+// #define TEXT_TO_SPEECH_URL "https://api.openai.com/v1/audio/speech"
+// #define AUDIO_TRANSCRIPTION_URL "https://api.openai.com/v1/audio/transcriptions"
+// #define TEXT_COMPLETION_URL "https://api.openai.com/v1/completions"
+
+#define TEXT_TO_SPEECH_URL "http://192.168.18.194:5000/convert"
+#define AUDIO_TRANSCRIPTION_URL "https://api.groq.com/openai/v1/audio/transcriptions"
+#define TEXT_COMPLETION_URL "https://api.groq.com/openai/v1/chat/completions"
 
 #define MAX_HTTP_RECV_BUFFER 512
 #define MAX_RESPONSE_BUFFER 1024
@@ -36,6 +45,7 @@ public:
     void text_completion(char *transmit_buf, char *received_buf);                 // y-1
     char *createJson(const char *key, const char *value, ...);
     char *process_response(const char *response);                   // y-1
+    char *process_response_v2(const char *response);
     uint32_t create_speech(char *transmit_buf, char *received_buf); // y-1
     char *processTranscribeResponse(char *response);                // y-1
 };

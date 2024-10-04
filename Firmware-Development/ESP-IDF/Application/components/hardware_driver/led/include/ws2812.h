@@ -24,6 +24,10 @@
 #ifndef _ESP32_WS2812_H_
 #define _ESP32_WS2812_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void init_ws2812();
 void RGB_1s();
 void wake_up_light();
@@ -37,4 +41,7 @@ void yellow_light_on();
 void orange_light_on();
 void purple_light_on();
 
+#ifdef __cplusplus
+}
+#endif
 #endif

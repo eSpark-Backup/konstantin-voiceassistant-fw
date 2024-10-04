@@ -146,7 +146,7 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt)
 void OpenAI::send_post_request(const char *api_key, const char *file_path)
 {
     esp_http_client_config_t config = {
-        .url = "https://api.openai.com/v1/audio/transcriptions", //"http://192.168.18.191:8000",
+        .url = AUDIO_TRANSCRIPTION_URL, //"http://192.168.18.191:8000",
         .method = HTTP_METHOD_POST,
         .event_handler = _http_event_handler,
     };
@@ -184,7 +184,7 @@ void OpenAI::send_post_request(const char *api_key, const char *file_path)
     snprintf(head_final, resultSize + 1, head_template, filename);
 
     const char *model_boundary = "\r\n--esp32boundary\r\n";
-    const char *model = "Content-Disposition: form-data; name=\"model\"\r\n\r\nwhisper-1\r\n";
+    const char *model = "Content-Disposition: form-data; name=\"model\"\r\n\r\ndistil-whisper-large-v3-en\r\n";
     const char *tail = "--esp32boundary--\r\n";
 
     // Set content length
@@ -261,7 +261,7 @@ void OpenAI::transcribe_wav_file(int16_t *stream, uint32_t size, char *received_
 {
     esp_http_client_config_t config =
         {
-            .url = "https://api.openai.com/v1/audio/transcriptions",
+            .url = AUDIO_TRANSCRIPTION_URL,
             .method = HTTP_METHOD_POST,
             .event_handler = _http_event_handler,
             .user_data = received_buf,
@@ -285,7 +285,7 @@ void OpenAI::transcribe_wav_file(int16_t *stream, uint32_t size, char *received_
     snprintf(head_final, resultSize + 1, head_template);
 
     const char *model_boundary = "\r\n--esp32boundary\r\n";
-    const char *model = "Content-Disposition: form-data; name=\"model\"\r\n\r\nwhisper-1\r\n";
+    const char *model = "Content-Disposition: form-data; name=\"model\"\r\n\r\ndistil-whisper-large-v3-en\r\n";
     const char *tail = "--esp32boundary--\r\n";
 
     uint8_t header[44];
@@ -365,7 +365,7 @@ void OpenAI::text_completion(char *transmit_buf, char *received_buf)
 {
     esp_http_client_config_t config =
         {
-            .url = "https://api.openai.com/v1/completions",
+            .url = TEXT_COMPLETION_URL,
             .method = HTTP_METHOD_POST,
             .event_handler = _http_event_handler,
             .user_data = received_buf,
@@ -430,11 +430,53 @@ char *OpenAI::process_response(const char *response)
     return result;
 }
 
+char *OpenAI::process_response_v2(const char *response)
+{
+    char *result = NULL;
+
+    // Parse the JSON response
+    cJSON *json = cJSON_Parse(response);
+    if (json == NULL)
+    {
+        ESP_LOGE(TAG, "Failed to parse JSON response.");
+    }
+    else
+    {
+        // Extract the "text" field from the "choices" array
+        cJSON *choices = cJSON_GetObjectItemCaseSensitive(json, "choices");
+        if (cJSON_IsArray(choices) && cJSON_GetArraySize(choices) > 0)
+        {
+            cJSON *choice = cJSON_GetArrayItem(choices, 0);
+            cJSON *message = cJSON_GetObjectItemCaseSensitive(choice, "message");
+            if(message)
+            {
+                cJSON *content = cJSON_GetObjectItem(message, "content");
+                if(content)
+                {
+                    ESP_LOGI(TAG, "Message Content: %s\n", content->valuestring);
+                    result = strdup(content->valuestring);
+                }
+            }
+            // if (cJSON_IsString(textField))
+            // {
+            //     ESP_LOGI(TAG, "%s\n", textField->valuestring);
+            //     // Allocate memory for the result string
+            //     result = strdup(textField->valuestring);
+            // }
+        }
+    }
+
+    // Free the allocated memory for the cJSON object
+    cJSON_Delete(json);
+
+    return result;
+}
+
 uint32_t OpenAI::create_speech(char *transmit_buf, char *received_buf)
 {
     esp_http_client_config_t config =
         {
-            .url = "https://api.openai.com/v1/audio/speech",
+            .url = TEXT_TO_SPEECH_URL,
             .method = HTTP_METHOD_POST,
             .event_handler = _http_event_handler,
             .user_data = received_buf,
@@ -443,7 +485,7 @@ uint32_t OpenAI::create_speech(char *transmit_buf, char *received_buf)
 
     char auth_value[100];
     snprintf(auth_value, sizeof(auth_value), "Bearer %s", API_KEY);
-    esp_http_client_set_header(client, "Authorization", auth_value);
+    // esp_http_client_set_header(client, "Authorization", auth_value);
     esp_http_client_set_header(client, "Content-Type", "application/json");
 
     esp_http_client_set_post_field(client, transmit_buf, strlen(transmit_buf));
