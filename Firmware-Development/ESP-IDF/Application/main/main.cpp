@@ -287,28 +287,28 @@ extern "C" void app_main()
     task_flag = 1;
     // esp_log_level_set("*", ESP_LOG_WARN);
     ESP_LOGI(TAG, "[ 2 ] Start codec chip");
-    audio_board_handle_t board_handle = audio_board_init();
-    board_handle->audio_hal->audio_codec_set_volume(100);
-    audio_hal_ctrl_codec(board_handle->audio_hal, AUDIO_HAL_CODEC_MODE_DECODE, AUDIO_HAL_CTRL_START);
+    // audio_board_handle_t board_handle = audio_board_init();
+    // board_handle->audio_hal->audio_codec_set_volume(100);
+    // audio_hal_ctrl_codec(board_handle->audio_hal, AUDIO_HAL_CODEC_MODE_DECODE, AUDIO_HAL_CTRL_START);
 
     // Initialize Button peripheral
-    esp_periph_config_t periph_cfg = DEFAULT_ESP_PERIPH_SET_CONFIG();
-    esp_periph_set_handle_t set = esp_periph_set_init(&periph_cfg);
+    // esp_periph_config_t periph_cfg = DEFAULT_ESP_PERIPH_SET_CONFIG();
+    // esp_periph_set_handle_t set = esp_periph_set_init(&periph_cfg);
 
-    audio_board_key_init(set);
-    input_key_service_info_t input_key_info[] = INPUT_KEY_DEFAULT_INFO();
-    input_key_service_cfg_t input_cfg = INPUT_KEY_SERVICE_DEFAULT_CONFIG();
-    input_cfg.handle = set;
-    periph_service_handle_t input_ser = input_key_service_create(&input_cfg);
-    input_key_service_add_key(input_ser, input_key_info, INPUT_KEY_NUM);
-    periph_service_set_callback(input_ser, input_key_service_cb, NULL);
+    // audio_board_key_init(set);
+    // input_key_service_info_t input_key_info[] = INPUT_KEY_DEFAULT_INFO();
+    // input_key_service_cfg_t input_cfg = INPUT_KEY_SERVICE_DEFAULT_CONFIG();
+    // input_cfg.handle = set;
+    // periph_service_handle_t input_ser = input_key_service_create(&input_cfg);
+    // input_key_service_add_key(input_ser, input_key_info, INPUT_KEY_NUM);
+    // periph_service_set_callback(input_ser, input_key_service_cb, NULL);
 
     AudioFrame audio = {.data = audio_data, .len = sizeof(audio_data)};
     play(audio);
 
 
-    xTaskCreatePinnedToCore(&feed_Task, "feed", 8 * 1024, (void *)afe_data, 5, NULL, 0);
-    xTaskCreatePinnedToCore(&detect_Task, "detect", 8 * 1024, (void *)afe_data, 5, NULL, 1);
+    // xTaskCreatePinnedToCore(&feed_Task, "feed", 8 * 1024, (void *)afe_data, 5, NULL, 0);
+    // xTaskCreatePinnedToCore(&detect_Task, "detect", 8 * 1024, (void *)afe_data, 5, NULL, 1);
 
 
     // // You can call afe_handle->destroy to destroy AFE.
