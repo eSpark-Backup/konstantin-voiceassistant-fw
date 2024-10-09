@@ -60,6 +60,16 @@ set(COMPONENT_SRCS
 )
 endif()
 
+
+if (CONFIG_ESP32_S3_KONSTANT)
+message(STATUS "Current board name is " CONFIG_ESP32_S3_KONSTANT)
+list(APPEND COMPONENT_ADD_INCLUDEDIRS ./esp32_s3_konstant)
+set(COMPONENT_SRCS
+./esp32_s3_konstant/board.c
+./esp32_s3_konstant/board_pins_config.c
+)
+endif()
+
 if (CONFIG_ESP32_KORVO_DU1906_BOARD)
 message(STATUS "Current board name is " CONFIG_ESP32_KORVO_DU1906_BOARD)
 list(APPEND COMPONENT_ADD_INCLUDEDIRS ./esp32_korvo_du1906)
