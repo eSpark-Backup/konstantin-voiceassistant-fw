@@ -22,7 +22,6 @@
 #include "nvs_flash.h"
 #include "output.hpp"
 #include "mp3_player.hpp"
-#include "audio_data.hpp"
 #include "board.h"
 #include "input_key_service.h"
 #include "WifiSoftApp.hpp"
@@ -30,6 +29,8 @@
 #include "cJSON.h"
 #include "main.hpp"
 #include <utility>
+// #include "audio_data.hpp"
+#include "hello_audio.hpp"
 
 static esp_afe_sr_iface_t *afe_handle = NULL;
 static esp_afe_sr_data_t *afe_data = NULL;
@@ -103,22 +104,22 @@ void detect_Task(void *arg)
 
     while (task_flag)
     {
-        afe_fetch_result_t* res = afe_handle->fetch(afe_data);
-        if (!res || res->ret_value == ESP_FAIL) {
-            printf("fetch error!\n");
-            break;
-        }
+        // afe_fetch_result_t* res = afe_handle->fetch(afe_data);
+        // if (!res || res->ret_value == ESP_FAIL) {
+        //     printf("fetch error!\n");
+        //     break;
+        // }
 
-        if (res->wakeup_state == WAKENET_DETECTED || recordStatus) {
-            printf("wakeword detected\n");
-            printf("model index:%d, word index:%d\n", res->wakenet_model_index, res->wake_word_index);
-            printf("-----------LISTENING-----------\n");
-            recordStatus = true;
-        }
-        else
-        {
-            continue;
-        }
+        // if (res->wakeup_state == WAKENET_DETECTED || recordStatus) {
+        //     printf("wakeword detected\n");
+        //     printf("model index:%d, word index:%d\n", res->wakenet_model_index, res->wake_word_index);
+        //     printf("-----------LISTENING-----------\n");
+        //     recordStatus = true;
+        // }
+        // else
+        // {
+        //     continue;
+        // }
         // // esp_audio_play(res->data, res->data_size, 1000/ portTICK_RATE_MS);
         // task_flag = 0;
         // while (!recordStatus)
@@ -126,12 +127,13 @@ void detect_Task(void *arg)
         //     vTaskDelay(200 / portTICK_RATE_MS);
         // }
         // task_flag = 1;
-        uint32_t audioSize = record(audioBuffer, RECORD_TIME_SECONDS);
+        // uint32_t audioSize = record(audioBuffer, RECORD_TIME_SECONDS);
         recordStatus = false;
 
         task_flag = 0;
 
-        openAI->transcribe_wav_file(audioBuffer, audioSize, transcribeResponseBuf);
+        openAI->transcribe_wav_file((int16_t*)&audio_data[0], sizeof(audio_data)/2, transcribeResponseBuf);
+        // openAI->transcribe_wav_file(audioBuffer, audioSize, transcribeResponseBuf);
         ESP_LOGI(TAG, "%s", transcribeResponseBuf);
         char *transcribedText = openAI->processTranscribeResponse(transcribeResponseBuf); // deallocation needed
         char *message = json->createJson(std::make_pair("role", "user"),
@@ -303,12 +305,12 @@ extern "C" void app_main()
     // input_key_service_add_key(input_ser, input_key_info, INPUT_KEY_NUM);
     // periph_service_set_callback(input_ser, input_key_service_cb, NULL);
 
-    AudioFrame audio = {.data = audio_data, .len = sizeof(audio_data)};
-    play(audio);
-
+    // AudioFrame audio = {.data = audio_data, .len = sizeof(audio_data)};
+    // play(audio);
+    
 
     // xTaskCreatePinnedToCore(&feed_Task, "feed", 8 * 1024, (void *)afe_data, 5, NULL, 0);
-    // xTaskCreatePinnedToCore(&detect_Task, "detect", 8 * 1024, (void *)afe_data, 5, NULL, 1);
+    xTaskCreatePinnedToCore(&detect_Task, "detect", 8 * 1024, (void *)afe_data, 5, NULL, 1);
 
 
     // // You can call afe_handle->destroy to destroy AFE.

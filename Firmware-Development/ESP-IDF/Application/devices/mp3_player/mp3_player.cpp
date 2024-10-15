@@ -67,6 +67,14 @@ static audio_element_err_t mp3_music_read_cb(audio_element_handle_t el, char *bu
     return (audio_element_err_t)static_cast<size_t>(read_size); 
 }
 
+/*
+ Current sequence is without MIC, and without wake word.
+                             [mp3 prompt data] ---> [transcribe] ---> [completion/response text] ---> [text to speech] ---> [i2s writer] ---> [audio amplifier]
+                                                  |
+                                                  |
+[mic] ---> [i2s reader] ---> [mp3 prompt data] --->
+*/
+
 void play(AudioFrame audio)
 {
     audio_pipeline_handle_t pipeline;
@@ -96,17 +104,19 @@ void play(AudioFrame audio)
     i2s_stream_writer = i2s_stream_init(&i2s_cfg);
 
     ESP_LOGI(TAG, "[3.3] Create mp3 decoder to decode mp3 file");
-    // mp3_decoder_cfg_t mp3_cfg = DEFAULT_MP3_DECODER_CONFIG();
-    wav_decoder_cfg_t mp3_cfg = DEFAULT_WAV_DECODER_CONFIG();
-    mp3_decoder = wav_decoder_init(&mp3_cfg);
+    mp3_decoder_cfg_t mp3_cfg = DEFAULT_MP3_DECODER_CONFIG();
+    // wav_decoder_cfg_t mp3_cfg = DEFAULT_WAV_DECODER_CONFIG();
+    mp3_decoder = mp3_decoder_init(&mp3_cfg);
+    // mp3_decoder = wav_decoder_init(&mp3_cfg);
 
     ESP_LOGI(TAG, "[3.4] Register all elements to audio pipeline");
     audio_element_set_read_cb(mp3_decoder, mp3_music_read_cb, &audio);
-    audio_pipeline_register(pipeline, mp3_decoder, "wav");
+    audio_pipeline_register(pipeline, mp3_decoder, "mp3");
+    // audio_pipeline_register(pipeline, mp3_decoder, "wav");
     audio_pipeline_register(pipeline, i2s_stream_writer, "i2s");
 
     ESP_LOGI(TAG, "[3.5] Link it together [flash]-->spiffs-->mp3_decoder-->i2s_stream-->[codec_chip]");
-    const char *link_tag[3] = {"wav", "i2s"};
+    const char *link_tag[3] = {"mp3", "i2s"};
     audio_pipeline_link(pipeline, &link_tag[0], 2);
 
     ESP_LOGI(TAG, "[ 4 ] Set up  event listener");
