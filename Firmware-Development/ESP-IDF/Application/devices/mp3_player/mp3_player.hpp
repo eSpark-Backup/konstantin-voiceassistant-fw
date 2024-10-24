@@ -12,3 +12,4 @@ typedef struct
 } AudioFrame;
 
 void play(AudioFrame audio);
+void record_stream(void *arg);
