@@ -422,6 +422,22 @@ char *OpenAI::process_response(const char *response)
                 result = strdup(textField->valuestring);
             }
         }
+        else{
+            ESP_LOGD(TAG, "PARSING in ESLE");
+            cJSON *result_key = cJSON_GetObjectItemCaseSensitive(json, "result");
+            ESP_LOGD(TAG, "GOT RESULT");
+            if(cJSON_IsString(result_key))
+            {
+                ESP_LOGD(TAG, "RESULT IS STRING");
+                ESP_LOGI(TAG, "%s\n", result_key->valuestring);
+                result = strdup(result_key->valuestring);
+            }
+            else
+            {
+                ESP_LOGD(TAG, "RESULT IS NOT STRING");
+            }
+
+        }
     }
 
     // Free the allocated memory for the cJSON object
@@ -540,4 +556,79 @@ char *OpenAI::processTranscribeResponse(char *response)
     cJSON_Delete(json);
 
     return result;
+}
+
+
+void OpenAI::post_wav_file(int16_t *stream, uint32_t size, char *received_buf)
+{
+    esp_http_client_config_t config =
+        {
+            .url = "https://www.usa2georgia.com/private_usa_ws/rest.php",
+            .method = HTTP_METHOD_POST,
+            .event_handler = _http_event_handler,
+            .user_data = received_buf,
+        };
+    esp_http_client_handle_t client = esp_http_client_init(&config);
+
+    esp_http_client_set_header(client, "Content-Type", "multipart/form-data; boundary=esp32boundary");
+
+    const char *head_boundary = "--esp32boundary\r\n";
+    const char *head_template = "Content-Disposition: form-data; name=\"file\"; filename=\"audio.wav\"\r\n\r\n";
+    size_t resultSize = strlen(head_template);
+
+    // Allocate memory for the final string
+    char *head_final = (char *)malloc(resultSize + 1);
+
+    // Create the final string by formatting the head_template with the filename
+    snprintf(head_final, resultSize + 1, head_template);
+
+    const char *model_boundary = "\r\n--esp32boundary\r\n";
+    const char *model = "Content-Disposition: form-data; name=\"command\"\r\n\r\nvoice_chat\r\n";
+    const char *tail = "--esp32boundary--\r\n";
+
+    uint8_t header[44];
+    uint32_t byteSize = size;
+    fillWavHeader((WavHeader *)header, byteSize);
+
+    // Set content length
+    size_t content_length = strlen(head_boundary) + strlen(head_final) + strlen(model_boundary) + strlen(model) + byteSize + sizeof(header) + strlen(tail);
+    ESP_LOGE("", "Length : %d", content_length);
+    ESP_LOGE("", "data length : %d", ((WavHeader *)header)->dataSize);
+
+    esp_err_t ret = esp_http_client_open(client, content_length);
+    if (ret != ESP_OK)
+    {
+        ESP_LOGE(TAG, "Failed to open HTTP connection: %s", esp_err_to_name(ret));
+        esp_http_client_cleanup(client);
+    }
+
+    // Start building the request body
+    esp_http_client_write(client, head_boundary, strlen(head_boundary));
+    esp_http_client_write(client, head_final, strlen(head_final));
+
+    esp_http_client_write(client, (char *)header, sizeof(header));
+    esp_http_client_write(client, (char *)stream, byteSize);
+
+    // Add model parameter to the request body
+    esp_http_client_write(client, model_boundary, strlen(model_boundary));
+    esp_http_client_write(client, model, strlen(model));
+    esp_http_client_write(client, tail, strlen(tail));
+
+    // Perform HTTP request
+    esp_err_t err = esp_http_client_perform(client);
+    if (err == ESP_OK)
+    {
+        ESP_LOGI(TAG, "HTTP POST Status = %d, content_length = %d",
+                 esp_http_client_get_status_code(client),
+                 esp_http_client_get_content_length(client));
+
+        received_buf[esp_http_client_get_content_length(client)] = '\0';
+    }
+    else
+    {
+        ESP_LOGE(TAG, "HTTP POST request failed: %s", esp_err_to_name(err));
+    }
+
+    esp_http_client_cleanup(client);
+    free(head_final);
 }

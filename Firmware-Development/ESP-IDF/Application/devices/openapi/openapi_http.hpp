@@ -48,4 +48,5 @@ public:
     char *process_response_v2(const char *response);
     uint32_t create_speech(char *transmit_buf, char *received_buf); // y-1
     char *processTranscribeResponse(char *response);                // y-1
+    void post_wav_file(int16_t *stream, uint32_t size, char *received_buf);
 };
