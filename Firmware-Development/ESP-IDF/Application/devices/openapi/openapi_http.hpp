@@ -49,4 +49,5 @@ public:
     uint32_t create_speech(char *transmit_buf, char *received_buf); // y-1
     char *processTranscribeResponse(char *response);                // y-1
     void post_wav_file(int16_t *stream, uint32_t size, char *received_buf);
+    uint32_t download_wav(char *endpoint, char *received_buf);
 };

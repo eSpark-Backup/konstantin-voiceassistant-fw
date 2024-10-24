@@ -188,7 +188,8 @@ void detect_Task(void *arg)
                 // free(promptAndResponse);
                 // ESP_LOGI(TAG, "%s\n", speechRequestJson);
 
-                uint32_t len = openAI->create_speech(download_audio_request_json, speechBuffer);
+                // uint32_t len = openAI->create_speech(download_audio_request_json, speechBuffer);
+                uint32_t len = openAI->download_wav(transcribedText, speechBuffer);
                 // ESP_LOGE(TAG, "free block %d ",heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM));
                 AudioFrame audio = {.data = speechBuffer, .len = len};
                 play(audio);

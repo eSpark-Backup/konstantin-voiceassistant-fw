@@ -632,3 +632,39 @@ void OpenAI::post_wav_file(int16_t *stream, uint32_t size, char *received_buf)
     esp_http_client_cleanup(client);
     free(head_final);
 }
+
+uint32_t OpenAI::download_wav(char *endpoint, char *received_buf)
+{
+    esp_http_client_config_t config =
+        {
+            .url = endpoint,
+            .method = HTTP_METHOD_GET,
+            .event_handler = _http_event_handler,
+            .user_data = received_buf,
+        };
+    esp_http_client_handle_t client = esp_http_client_init(&config);
+
+    // char auth_value[100];
+    // snprintf(auth_value, sizeof(auth_value), "Bearer %s", API_KEY);
+    // esp_http_client_set_header(client, "Authorization", auth_value);
+    // esp_http_client_set_header(client, "Content-Type", "application/json");
+
+    // esp_http_client_set_post_field(client, transmit_buf, strlen(transmit_buf));
+
+    esp_err_t err = esp_http_client_perform(client);
+
+    if (err == ESP_OK)
+    {
+        ESP_LOGI(TAG, "HTTP POST Status = %d, content_length = %d",
+                 esp_http_client_get_status_code(client),
+                 esp_http_client_get_content_length(client));
+    }
+    else
+    {
+        ESP_LOGE(TAG, "HTTP POST request failed: %s", esp_err_to_name(err));
+    }
+
+    esp_http_client_cleanup(client);
+
+    return size;
+}
