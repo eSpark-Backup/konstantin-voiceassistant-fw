@@ -28,9 +28,8 @@ add_custom_command(
     COMMENT "Ensuring output directory exists..."
 )
 
-# Copy the generated binaries after a successful build
 add_custom_command(
-    OUTPUT "${CUSTOM_OUTPUT_DIR}/${CMAKE_PROJECT_NAME}.bin" "${CUSTOM_OUTPUT_DIR}/${CMAKE_PROJECT_NAME}.elf"
+    OUTPUT "${CUSTOM_OUTPUT_DIR}/${CMAKE_PROJECT_NAME}.bin" "${CUSTOM_OUTPUT_DIR}/${CMAKE_PROJECT_NAME}.elf" "${CUSTOM_OUTPUT_DIR}/srmodels.bin" "${CUSTOM_OUTPUT_DIR}/flasher_args.json"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
     "${CMAKE_BINARY_DIR}/${CMAKE_PROJECT_NAME}.bin" "${CUSTOM_OUTPUT_DIR}/${CMAKE_PROJECT_NAME}.bin"
     COMMAND ${CMAKE_COMMAND} -E echo "Successfully copied ${CMAKE_PROJECT_NAME}.bin to ${CUSTOM_OUTPUT_DIR}/${CMAKE_PROJECT_NAME}.bin"
@@ -43,9 +42,16 @@ add_custom_command(
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
     "${CMAKE_BINARY_DIR}/partition_table/partition-table.bin" "${CUSTOM_OUTPUT_DIR}/partition-table.bin"
     COMMAND ${CMAKE_COMMAND} -E echo "Successfully copied partition-table.bin to ${CUSTOM_OUTPUT_DIR}/partition-table.bin"
-    DEPENDS "${CMAKE_BINARY_DIR}/${CMAKE_PROJECT_NAME}.bin" "${CMAKE_BINARY_DIR}/${CMAKE_PROJECT_NAME}.elf" "${CMAKE_BINARY_DIR}/bootloader/bootloader.bin" "${CMAKE_BINARY_DIR}/partition_table/partition-table.bin"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${CMAKE_BINARY_DIR}/srmodels/srmodels.bin" "${CUSTOM_OUTPUT_DIR}/srmodels.bin"
+    COMMAND ${CMAKE_COMMAND} -E echo "Successfully copied srmodels.bin to ${CUSTOM_OUTPUT_DIR}/srmodels.bin"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${CMAKE_BINARY_DIR}/flasher_args.json" "${CUSTOM_OUTPUT_DIR}/flasher_args.json"
+    COMMAND ${CMAKE_COMMAND} -E echo "Successfully copied flasher_args.json to ${CUSTOM_OUTPUT_DIR}/flasher_args.json"
+    DEPENDS "${CMAKE_BINARY_DIR}/${CMAKE_PROJECT_NAME}.bin" "${CMAKE_BINARY_DIR}/${CMAKE_PROJECT_NAME}.elf" "${CMAKE_BINARY_DIR}/bootloader/bootloader.bin" "${CMAKE_BINARY_DIR}/partition_table/partition-table.bin" "${CMAKE_BINARY_DIR}/srmodels/srmodels.bin" "${CMAKE_BINARY_DIR}/flasher_args.json"
     COMMENT "Copying binary files to ${CUSTOM_OUTPUT_DIR}..."
 )
 
+
 # Ensure the custom command is tied to the build process
-add_custom_target(copy_binaries ALL DEPENDS "${CUSTOM_OUTPUT_DIR}/${CMAKE_PROJECT_NAME}.bin" "${CUSTOM_OUTPUT_DIR}/${CMAKE_PROJECT_NAME}.elf" "${CMAKE_BINARY_DIR}/bootloader/bootloader.bin" "${CMAKE_BINARY_DIR}/partition_table/partition-table.bin")
+add_custom_target(copy_binaries ALL DEPENDS "${CUSTOM_OUTPUT_DIR}/${CMAKE_PROJECT_NAME}.bin" "${CUSTOM_OUTPUT_DIR}/${CMAKE_PROJECT_NAME}.elf" "${CMAKE_BINARY_DIR}/bootloader/bootloader.bin" "${CMAKE_BINARY_DIR}/partition_table/partition-table.bin"  "${CMAKE_BINARY_DIR}/srmodels/srmodels.bin" "${CMAKE_BINARY_DIR}/flasher_args.json")
