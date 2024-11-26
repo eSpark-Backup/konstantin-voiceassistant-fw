@@ -3,4 +3,5 @@ build/
 sdkconfig
 sdkconfig.old
 managed_components/
+Binaries.rar
 Firmware-Development/ESP-IDF/Application/devices/openapi/api_keys.h
