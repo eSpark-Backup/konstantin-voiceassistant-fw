@@ -162,6 +162,7 @@ void play(AudioFrame audio)
             ESP_LOGW(TAG, "[ * ] Stop event received");
             break;
         }
+        vTaskDelay(20);
     }
 
     ESP_LOGI(TAG, "[ 7 ] Stop audio_pipeline");

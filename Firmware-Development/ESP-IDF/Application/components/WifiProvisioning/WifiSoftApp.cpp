@@ -150,6 +150,7 @@ void WifiProvisioning::softap(void)
 #endif /* CONFIG_EXAMPLE_PROV_TRANSPORT_SOFTAP */
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+    esp_wifi_set_max_tx_power(127);
 
     /* Configuration for the provisioning manager */
     wifi_prov_mgr_config_t config = {

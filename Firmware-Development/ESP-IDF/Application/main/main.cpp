@@ -29,8 +29,8 @@
 #include "cJSON.h"
 #include "main.hpp"
 #include <utility>
-// #include "audio_data.hpp"
-#include "hello_audio.hpp"
+#include "audio_data.hpp"
+// #include "hello_audio.hpp"
 
 static esp_afe_sr_iface_t *afe_handle = NULL;
 static esp_afe_sr_data_t *afe_data = NULL;
@@ -85,6 +85,7 @@ void detect_Task(void *arg)
     esp_afe_sr_data_t *afe_data = static_cast<esp_afe_sr_data_t *>(arg);
     int afe_chunksize = afe_handle->get_fetch_chunksize(afe_data);
     int16_t *buff = static_cast<int16_t *>(malloc(afe_chunksize * sizeof(int16_t)));
+    uint32_t len = 0;
     assert(buff);
     printf("------------detect start------------\n");
     // int volume = 0;
@@ -135,69 +136,51 @@ void detect_Task(void *arg)
 
         // openAI->transcribe_wav_file((int16_t*)&audio_data[0], sizeof(audio_data)/2, transcribeResponseBuf);
         // openAI->transcribe_wav_file(audioBuffer, audioSize, transcribeResponseBuf);
-        openAI->post_wav_file(audioBuffer, audioSize, transcribeResponseBuf);
-        ESP_LOGI(TAG, "%s", transcribeResponseBuf);
-        char *transcribedText = openAI->process_response(transcribeResponseBuf); // deallocation needed
-
-        // char *message = json->createJson(std::make_pair("role", "user"),
-        //                                  std::make_pair("content", transcribedText));
-
-        // ESP_LOGE(TAG, "message = %s", message);
-        // char *messages = json->createJsonArray(message);
-        // ESP_LOGE(TAG, "messages = %s", messages);
-
-        // // Parse the `messages` string back into a cJSON array object
-        // cJSON *messagesJson = cJSON_Parse(messages);
-
-        // cJSON *completionRequest = cJSON_CreateObject();
-        // cJSON_AddItemToObject(completionRequest, "model", cJSON_CreateString("mixtral-8x7b-32768"));
-        // cJSON_AddItemToObject(completionRequest, "messages", messagesJson);  // Add messages as a JSON array, not a string
-        // cJSON_AddItemToObject(completionRequest, "max_tokens", cJSON_CreateNumber(32));
-        // cJSON_AddItemToObject(completionRequest, "temperature", cJSON_CreateNumber(0.5));
-        char* download_audio_request_json = (char*)(malloc(sizeof(char)*200));
-        if (transcribedText)
+        // openAI->post_wav_file_v2((int16_t*)&audio_data[0], sizeof(audio_data)/2, transcribeResponseBuf);
+        memset(transcribeResponseBuf, 0, MAX_RESPONSE_BUFFER );
+        while(strlen(transcribeResponseBuf) <= 0)
         {
-            ESP_LOGE(TAG, "RESULT KEY = %s", transcribedText);
-            sprintf(download_audio_request_json, "{\"input\":\"%s\"}", transcribedText);
+            openAI->post_wav_file_v2(audioBuffer, audioSize, transcribeResponseBuf);
+            vTaskDelay(10/portTICK_PERIOD_MS);
+        }
+        // openAI->post_wav_file(audioBuffer, audioSize, transcribeResponseBuf);
+
+        ESP_LOGI(TAG, "%s", transcribeResponseBuf);
+
+        char *transcribedText = openAI->process_json_v3(transcribeResponseBuf); // deallocation needed
+
+        memset(transcribeResponseBuf, 0, MAX_RESPONSE_BUFFER );
+        int data_recv_len = 0;
+        while(strlen(transcribeResponseBuf) <= 0)
+        {
+            data_recv_len = openAI->create_speech_v2(transcribedText, transcribeResponseBuf);
+            vTaskDelay(10/portTICK_PERIOD_MS);
+        }
+
+        char *speech_api = openAI->process_response(transcribeResponseBuf); // deallocation needed
+
+        ESP_LOGI(TAG, "%s", transcribeResponseBuf);
+
+        char* download_audio_request_json = (char*)(malloc(sizeof(char)*200));
+        if (speech_api)
+        {
+            ESP_LOGE(TAG, "RESULT KEY = %s", speech_api);
+            sprintf(download_audio_request_json, "{\"input\":\"%s\"}", speech_api);
             ESP_LOGE(TAG, "REQ JOSN  = %s", download_audio_request_json);
-            // char *completionRequestJson = cJSON_PrintUnformatted(completionRequest);
-            // ESP_LOGE(TAG, "completionRequestJson = %s", completionRequestJson);
 
-            // char *completionRequestJson = json->createJson(std::make_pair("model", "mixtral-8x7b-32768"),
-            //                                                std::make_pair("messages", messages),
-            //                                                std::make_pair("max_tokens", 32),
-            //                                                std::make_pair("temperature", 0.5)); // deallocation needed
-
-            // ESP_LOGI(TAG, "%s\n", completionRequestJson);
-            // openAI->text_completion(completionRequestJson, completionResponseBuf);
-
-            // ESP_LOGI(TAG, "completionResponseBuf = %s", completionResponseBuf);
-
-            // char *completionText = openAI->process_response_v2(completionResponseBuf); // deallocation needed
             if (download_audio_request_json)
             {
-                // char *speechRequestJson = json->createJson(std::make_pair("model", "tts-1"),
-                //                                            std::make_pair("input", completionText),
-                //                                            std::make_pair("voice", "alloy"),
-                //                                            std::make_pair("response_data", "wav")); // deallocation needed
-
-                // char *promptAndResponse = json->createJson(std::make_pair("prompt", transcribedText), std::make_pair("response", completionText));
-
-                // telemetrySend->send_telemetry_data(promptAndResponse); // Post prompt and respone telemetry to the server
-
-                // free(promptAndResponse);
-                // ESP_LOGI(TAG, "%s\n", speechRequestJson);
-
-                // uint32_t len = openAI->create_speech(download_audio_request_json, speechBuffer);
-                uint32_t len = openAI->download_wav(transcribedText, speechBuffer);
+                len = 0;            
+                // while(len <= 0)
+                {
+                    len = openAI->download_wav(speech_api, speechBuffer);
+                    vTaskDelay(20/portTICK_PERIOD_MS);
+                }
                 // ESP_LOGE(TAG, "free block %d ",heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM));
                 AudioFrame audio = {.data = speechBuffer, .len = len};
                 play(audio);
 
-                // free(speechRequestJson);
             }
-            // free(completionRequestJson);
-            // free(completionText);
         }
         free(transcribedText);
         free(download_audio_request_json);
@@ -235,7 +218,7 @@ extern "C" void app_main()
     char *jsonData = json->createJson(std::make_pair("Wifi Status", 1),
                                       std::make_pair("Ready to connect with the OpenAI", 0.5));
 
-    telemetrySend->send_telemetry_data(jsonData); // Post Health telemetry to the server
+    // telemetrySend->send_telemetry_data(jsonData); // Post Health telemetry to the server
 
     free(jsonData);
     // Free the allocated memory for jsonData

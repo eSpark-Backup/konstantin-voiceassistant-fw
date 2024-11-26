@@ -446,6 +446,39 @@ char *OpenAI::process_response(const char *response)
     return result;
 }
 
+char *OpenAI::process_json_v3(const char *response)
+{
+    char *result = NULL;
+
+    // Parse the JSON response
+    cJSON *json = cJSON_Parse(response);
+    if (json == NULL)
+    {
+        ESP_LOGE(TAG, "Failed to parse JSON response.");
+    }
+    else
+    {
+        // Extract the "DisplayText" field
+        cJSON *displayText = cJSON_GetObjectItemCaseSensitive(json, "DisplayText");
+        if (cJSON_IsString(displayText) && displayText->valuestring != NULL)
+        {
+            ESP_LOGI(TAG, "DisplayText: %s\n", displayText->valuestring);
+            // Allocate memory for the result string
+            result = strdup(displayText->valuestring);
+        }
+        else
+        {
+            ESP_LOGE(TAG, "DisplayText not found or is not a string.");
+        }
+    }
+
+    // Free the allocated memory for the cJSON object
+    cJSON_Delete(json);
+
+    return result;
+}
+
+
 char *OpenAI::process_response_v2(const char *response)
 {
     char *result = NULL;
@@ -665,6 +698,139 @@ uint32_t OpenAI::download_wav(char *endpoint, char *received_buf)
     }
 
     esp_http_client_cleanup(client);
+
+    return size;
+}
+
+void OpenAI::post_wav_file_v2(int16_t *stream, uint32_t size, char *received_buf) // issue # 1 : extended
+{
+    esp_http_client_config_t config =
+        {
+            .url = "https://westeurope.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=en-US&format=detailed",
+            .method = HTTP_METHOD_POST,
+            .event_handler = _http_event_handler,
+            .user_data = received_buf,
+        };
+    esp_http_client_handle_t client = esp_http_client_init(&config);
+
+    /*
+    SPEECH_REGION=westeurope  
+    SPEECH_KEY=cecb3c3d2da34468bf2fc51a12df1ef9 OR a1334c463e924ca3ad398ba6bcad0f85
+    */
+
+    esp_http_client_set_header(client, "Content-Type", "audio/wav");
+    esp_http_client_set_header(client, "Ocp-Apim-Subscription-Key", "cecb3c3d2da34468bf2fc51a12df1ef9");
+
+    uint8_t header[44];
+    uint32_t byteSize = size;
+    fillWavHeader((WavHeader *)header, byteSize);
+
+    // Set content length
+    size_t content_length = byteSize + sizeof(header);
+    ESP_LOGE("", "Length : %d", content_length);
+    ESP_LOGE("", "data length : %d", ((WavHeader *)header)->dataSize);
+
+    esp_http_client_write(client, (char *)header, sizeof(header));
+    esp_http_client_set_post_field(client, (const char *)stream, byteSize);
+    // esp_http_client_write(client, (char *)stream, byteSize);
+
+
+    esp_err_t ret = esp_http_client_open(client, content_length);
+    if (ret != ESP_OK)
+    {
+        ESP_LOGE(TAG, "Failed to open HTTP connection: %s", esp_err_to_name(ret));
+        esp_http_client_cleanup(client);
+        return;
+    }
+
+    // Perform HTTP request
+    esp_err_t err = esp_http_client_perform(client);
+    if (err == ESP_OK)
+    {
+        ESP_LOGI(TAG, "HTTP POST Status = %d, content_length = %d",
+                 esp_http_client_get_status_code(client),
+                 esp_http_client_get_content_length(client));
+
+        received_buf[esp_http_client_get_content_length(client)] = '\0';
+    }
+    else
+    {
+        ESP_LOGE(TAG, "HTTP POST request failed: %s", esp_err_to_name(err));
+    }
+
+    esp_http_client_cleanup(client);
+    return;
+}
+
+uint32_t OpenAI::create_speech_v2(char *transmit_buf, char *received_buf)
+{
+    esp_http_client_config_t config =
+        {
+            .url = "https://www.usa2georgia.com/private_usa_ws/rest.php",
+            .method = HTTP_METHOD_POST,
+            .event_handler = _http_event_handler,
+            .user_data = received_buf,
+            .keep_alive_enable = true,
+        };
+    esp_http_client_handle_t client = esp_http_client_init(&config);
+
+    esp_http_client_set_timeout_ms(client, 60000);
+
+    esp_http_client_set_header(client, "Content-Type", "multipart/form-data; boundary=esp32boundary");
+
+    const char *head_boundary = "--esp32boundary\r\n";
+    const char *head_template = "Content-Disposition: form-data; name=\"text\";\r\n\r\n%s\r\n";
+    size_t resultSize = strlen(head_template);
+
+    // Allocate memory for the final string
+    int head_final_len = resultSize + (strlen(transmit_buf));
+    char *head_final = (char *)malloc(head_final_len + 1);
+
+    // Create the final string by formatting the head_template with the filename
+    snprintf(head_final, head_final_len + 1, head_template, transmit_buf);
+
+    const char *model_boundary = "\r\n--esp32boundary\r\n";
+    const char *model = "Content-Disposition: form-data; name=\"command\"\r\n\r\nvoice_chat\r\n";
+    const char *tail = "--esp32boundary--\r\n";
+
+    // Set content length
+    size_t content_length = strlen(head_boundary) + strlen(head_final) + strlen(model_boundary) + strlen(model) + strlen(tail);
+    ESP_LOGE("", "Length : %d", content_length);
+
+    esp_err_t ret = esp_http_client_open(client, content_length);
+    if (ret != ESP_OK)
+    {
+        ESP_LOGE(TAG, "Failed to open HTTP connection: %s", esp_err_to_name(ret));
+        esp_http_client_cleanup(client);
+        return size;
+    }
+
+    // Start building the request body
+    esp_http_client_write(client, head_boundary, strlen(head_boundary));
+    esp_http_client_write(client, head_final, strlen(head_final));
+
+    // Add model parameter to the request body
+    esp_http_client_write(client, model_boundary, strlen(model_boundary));
+    esp_http_client_write(client, model, strlen(model));
+    esp_http_client_write(client, tail, strlen(tail));
+
+    // Perform HTTP request
+    esp_err_t err = esp_http_client_perform(client);
+    if (err == ESP_OK)
+    {
+        ESP_LOGI(TAG, "HTTP POST Status = %d, content_length = %d",
+                 esp_http_client_get_status_code(client),
+                 esp_http_client_get_content_length(client));
+
+        received_buf[esp_http_client_get_content_length(client)] = '\0';
+    }
+    else
+    {
+        ESP_LOGE(TAG, "HTTP POST request failed: %s", esp_err_to_name(err));
+    }
+
+    esp_http_client_cleanup(client);
+    free(head_final);
 
     return size;
 }
