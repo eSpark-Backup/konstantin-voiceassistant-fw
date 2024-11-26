@@ -168,19 +168,21 @@ void detect_Task(void *arg)
             sprintf(download_audio_request_json, "{\"input\":\"%s\"}", speech_api);
             ESP_LOGE(TAG, "REQ JOSN  = %s", download_audio_request_json);
 
-            if (download_audio_request_json)
-            {
-                len = 0;            
-                // while(len <= 0)
-                {
-                    len = openAI->download_wav(speech_api, speechBuffer);
-                    vTaskDelay(20/portTICK_PERIOD_MS);
-                }
-                // ESP_LOGE(TAG, "free block %d ",heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM));
-                AudioFrame audio = {.data = speechBuffer, .len = len};
-                play(audio);
+            play_http_stream(speech_api);
 
-            }
+            // if (download_audio_request_json)
+            // {
+            //     // len = 0;            
+            //     // // while(len <= 0)
+            //     // {
+            //     //     len = openAI->download_wav(speech_api, speechBuffer);
+            //     //     vTaskDelay(20/portTICK_PERIOD_MS);
+            //     // }
+            //     // ESP_LOGE(TAG, "free block %d ",heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM));
+            //     // AudioFrame audio = {.data = speechBuffer, .len = len};
+            //     // play(audio);
+
+            // }
         }
         free(transcribedText);
         free(download_audio_request_json);

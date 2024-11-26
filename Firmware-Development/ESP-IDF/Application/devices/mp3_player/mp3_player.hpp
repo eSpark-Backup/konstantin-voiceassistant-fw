@@ -12,3 +12,5 @@ typedef struct
 } AudioFrame;
 
 void play(AudioFrame audio);
+void play_http_stream(const char* arg_stream_endpoint);
+
